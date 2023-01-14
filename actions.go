@@ -20,6 +20,17 @@ type Payload struct {
 func handleSlackRequest(w http.ResponseWriter, r *http.Request) {
 	// Read the request body
 	body, _ := ioutil.ReadAll(r.Body)
+	//TODO: use r.ParseForm() and r.PostForm["payload"][0] instead
+	// Get Json decoded to pointer:
+	//func handler(w http.ResponseWriter, r *http.Request) {
+	//	var req UserRequest
+	//	err := json.NewDecoder(r.Body).Decode(&req)
+	//	if err != nil {
+	//		http.Error(w, err.Error(), 400)
+	//		return
+	//	}
+	//	// process with the request parameters
+	//}
 
 	// Unmarshal the JSON payload
 	var payload Payload

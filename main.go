@@ -12,7 +12,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	// log incoming requests
-	log.Printf("Request body: %s", r.PostForm["payload"][0])
+	log.Printf("Request body: %s", r.PostForm)
 	log.Printf("Request header: %v", r.Header)
 
 	// get values from request
