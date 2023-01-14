@@ -48,3 +48,55 @@ func handleSlackRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+// Sample with slack sdk
+//func main() {
+//	api := slack.New("YOUR_ACCESS_TOKEN_HERE")
+//
+//	// Build the modal view
+//	view := slack.ModalViewRequest{
+//		Type: "modal",
+//		CallbackID: "modal-identifier",
+//		Title: &slack.TextBlockObject{
+//			Type: "plain_text",
+//			Text: "Just a modal",
+//		},
+//		Blocks: slack.Blocks{
+//			slack.BlockSet{
+//				Type: "section",
+//				BlockID: "section-identifier",
+//				Text: &slack.TextBlockObject{
+//					Type: "mrkdwn",
+//					Text: "*Welcome* to ~my~ Block Kit _modal_!",
+//				},
+//				Accessory: &slack.ButtonBlockElement{
+//					Type: "button",
+//					Text: &slack.TextBlockObject{
+//						Type: "plain_text",
+//						Text: "Just a button",
+//					},
+//					ActionID: "button-identifier",
+//				},
+//			},
+//		},
+//	}
+//
+//	triggerID := "156772938.1827394"
+//	openView, err := api.OpenView(context.Background(), triggerID, view)
+//	if err != nil {
+//		fmt.Printf("Error opening view: %s\n", err)
+//		return
+//	}
+//	fmt.Printf("View opened successfully: %s\n", openView)
+//}
+
+//view := slack.View{
+//Type: "modal",
+//Blocks: slack.Blocks{
+//BlockSet: viewJSON,
+//},
+//PrivateMetadata: "",
+//CallbackID: "",
+//ExternalID: "",
+//AppID: "",
+//}
