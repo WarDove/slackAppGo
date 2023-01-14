@@ -10,25 +10,21 @@ import (
 func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
 	r.ParseForm()
+
+	// log incoming requests
+	log.Printf("Request body: %s", r.PostForm)
+	log.Printf("Request header: %v", r.Header)
+
+	// get values from request
+	r.ParseForm()
 	commandText := r.Form.Get("text")
 	commandUser := r.Form.Get("user_name")
 
-	createJson := fmt.Sprintf(`{
-        "blocks": [
-                {
-                        "type": "section",
-                        "text": {
-                                "type": "mrkdwn",
-                                "text": ":tada: Test %s is successful!!!\n<https://huseynov.net| Click here> to view"
-                        }
-                }
-        ]
-}`, "test")
-
 	args := strings.Fields(commandText)
-	if len(args) > 1 {
-		log.Printf("Error: too many arguments, Slack user: %s", commandUser)
-		fmt.Fprint(w, "Error: too many arguments")
+	if len(args) != 1 {
+		log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUser)
+		fmt.Fprint(w, "Error: Argument requirements were not fulfilled!")
+		//TODO: Help display function here
 		return
 	}
 
@@ -37,6 +33,10 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	case "create":
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, createJson)
+	default:
+		fmt.Fprint(w, "Invalid argument")
+		//TODO: Help display function here
+		return
 	}
 }
 
