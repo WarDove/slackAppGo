@@ -43,6 +43,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	http.HandleFunc("/test", slashCmdHandle)
+	http.HandleFunc("/actions", handleSlackRequest)
 	http.ListenAndServe(":80", nil)
 
 }
