@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
 var responseUrl string
 
-var client *slack.Client = slack.New("xoxb-3067711698450-4645480503873-qoIqRE703fst4OIlcI1KFn6K")
+var client *slack.Client
 
 type ViewSubmission struct {
 	Type string `json:"type"`
@@ -122,14 +124,14 @@ var viewCreateJSON string = `
 {
 	"title": {
 		"type": "plain_text",
-		"text": "Modal Title"
+		"text": "Create Ops Issue"
 	},
 	"submit": {
 		"type": "plain_text",
 		"text": "Submit"
 	},
 	"blocks": [
-		{	
+		{
 			"block_id": "4007890",
 			"type": "input",
 			"element": {
@@ -137,16 +139,16 @@ var viewCreateJSON string = `
 				"action_id": "sl_input",
 				"placeholder": {
 					"type": "plain_text",
-					"text": "Placeholder text for single-line input"
+					"text": "Brief summary text"
 				}
 			},
 			"label": {
 				"type": "plain_text",
-				"text": "Label"
+				"text": "Summary"
 			},
 			"hint": {
 				"type": "plain_text",
-				"text": "Hint text"
+				"text": "A summary of what the issue is about"
 			}
 		},
 		{
@@ -158,16 +160,16 @@ var viewCreateJSON string = `
 				"multiline": true,
 				"placeholder": {
 					"type": "plain_text",
-					"text": "Placeholder text for multi-line input"
+					"text": "Issue description"
 				}
 			},
 			"label": {
 				"type": "plain_text",
-				"text": "Label"
+				"text": "Description"
 			},
 			"hint": {
 				"type": "plain_text",
-				"text": "Hint text"
+				"text": "Describe issue and define acceptance criteria for this issue"
 			}
 		}
 	],
@@ -179,6 +181,12 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
 	r.ParseForm()
 
+	// load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	// log incoming requests
 	JSONBody := r.PostForm["payload"][0]
 	log.Printf("Request URI: %s", r.RequestURI)
@@ -188,7 +196,7 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 	// Decode JSON body
 	bodyReader := strings.NewReader(JSONBody)
 	var viewSubmission ViewSubmission
-	err := json.NewDecoder(bodyReader).Decode(&viewSubmission)
+	err = json.NewDecoder(bodyReader).Decode(&viewSubmission)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -221,13 +229,17 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
 	r.ParseForm()
 
+	// load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	// log incoming requests
 	log.Printf("Request URI: %s", r.RequestURI)
 	log.Printf("Request body: %s", r.PostForm)
 	log.Printf("Request header: %v", r.Header)
 
-	// get values from request
-	r.ParseForm()
 	commandText := r.Form.Get("text")
 	commandUser := r.Form.Get("user_name")
 	triggerID := r.Form.Get("trigger_id")
@@ -247,6 +259,8 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 		//TODO: Help display function here
 		return
 	}
+
+	client = slack.New(os.Getenv("SLACK_TOKEN"))
 
 	switch args[0] {
 
