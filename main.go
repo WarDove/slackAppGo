@@ -14,8 +14,12 @@ import (
 )
 
 var responseUrl string
+var slackUsername string
 
-var client *slack.Client
+// will be used by multiple functions i.e getSlackUserName, slashCommandHandle
+var slackClient *slack.Client = slack.New(GetDotEnv("SLACK_TOKEN"))
+var jiraClient *jira.Client = createJiraClient()
+var jiraBaseUrl string = GetDotEnv("JIRA_URL")
 
 type ViewSubmission struct {
 	Type string `json:"type"`
@@ -189,8 +193,7 @@ func GetDotEnv(key string) string {
 }
 
 func getSlackUserName(slackUserID string) string {
-	client := slack.New(GetDotEnv("SLACK_TOKEN"))
-	user, err := client.GetUserInfo(slackUserID)
+	user, err := slackClient.GetUserInfo(slackUserID)
 	if err != nil {
 		fmt.Println("Error getting Slack user information:", err)
 		return ""
@@ -198,18 +201,20 @@ func getSlackUserName(slackUserID string) string {
 	return user.Profile.RealName
 }
 
-func createJiraIssue(issueSummary, issueDescription, slackUsername string) (string, string) {
+func createJiraClient() *jira.Client {
 	tp := jira.BasicAuthTransport{
 		Username: GetDotEnv("JIRA_USERNAME"),
 		Password: GetDotEnv("JIRA_PASSWORD"),
 	}
 
-	baseUrl := GetDotEnv("JIRA_URL")
-
-	client, err := jira.NewClient(tp.Client(), baseUrl)
+	jiraClient, err := jira.NewClient(tp.Client(), jiraBaseUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return jiraClient
+}
+
+func createJiraIssue(issueSummary, issueDescription, slackUsername string) (string, string) {
 
 	issue := jira.Issue{
 		Fields: &jira.IssueFields{
@@ -226,14 +231,15 @@ func createJiraIssue(issueSummary, issueDescription, slackUsername string) (stri
 			Summary: fmt.Sprintf("%s [Author: %s]", issueSummary, slackUsername),
 		},
 	}
-	createdIssue, resp, err := client.Issue.Create(&issue)
+
+	createdIssue, resp, err := jiraClient.Issue.Create(&issue)
 	if err != nil {
 		fmt.Println("Error creating Jira task:", resp.Status, err)
 	} else {
 		fmt.Println("Jira task created successfully!")
 	}
 
-	issueUrl := fmt.Sprintf("%s/browse/%s", baseUrl, createdIssue.Key)
+	issueUrl := fmt.Sprintf("%s/browse/%s", jiraBaseUrl, createdIssue.Key)
 
 	return createdIssue.Key, issueUrl
 }
@@ -262,10 +268,10 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	// TODO: CREATE TASK FUNCTIONALITY HERE
+	// Create issue
 	issueSummary := viewSubmission.View.State.Values.Summary.SlInput.Value
 	issueDescription := viewSubmission.View.State.Values.Description.MlInput.Value
-	slackUsername := getSlackUserName(viewSubmission.User.ID)
+	slackUsername = getSlackUserName(viewSubmission.User.ID)
 	issueKey, issueUrl := createJiraIssue(issueSummary, issueDescription, slackUsername)
 	log.Printf("Issue %v successfully created", issueKey)
 	// Respond Successfully
@@ -295,12 +301,6 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
 	r.ParseForm()
 
-	// load .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
 	// log incoming requests
 	log.Printf("Request URI: %s", r.RequestURI)
 	log.Printf("Request body: %s", r.PostForm)
@@ -308,15 +308,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 
 	commandText := r.Form.Get("text")
 	commandUser := r.Form.Get("user_name")
-	triggerID := r.Form.Get("trigger_id")
 	responseUrl = r.Form.Get("response_url")
-
-	// creating initial view
-	var viewCreateRequest slack.ModalViewRequest
-	if err := json.Unmarshal([]byte(viewCreateJSON), &viewCreateRequest); err != nil {
-		log.Println(err)
-		return
-	}
 
 	args := strings.Fields(commandText)
 	if len(args) != 1 {
@@ -326,17 +318,81 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client = slack.New(GetDotEnv("SLACK_TOKEN"))
-
 	switch args[0] {
 
 	case "create":
-		openView, err := client.OpenView(triggerID, viewCreateRequest)
+
+		// creating view
+		triggerID := r.Form.Get("trigger_id")
+
+		var viewCreateRequest slack.ModalViewRequest
+		if err := json.Unmarshal([]byte(viewCreateJSON), &viewCreateRequest); err != nil {
+			log.Println(err)
+			return
+		}
+
+		// opening view
+		openView, err := slackClient.OpenView(triggerID, viewCreateRequest)
 		if err != nil {
 			log.Printf("Error opening view: %s\n", err)
 			return
 		}
-		log.Printf("View opened successfully: %s\n", openView.ExternalID)
+		log.Printf("View opened successfully, ID %s\n", openView.View.ID)
+
+	case "list":
+
+		JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ 'Author: %s' ORDER BY created DESC", GetDotEnv("JIRA_PROJECT_KEY"), slackUsername)
+
+		issues, _, err := jiraClient.Issue.Search(JQLQuery, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if len(issues) > 0 {
+			listOutput := ""
+			for _, issue := range issues {
+				listOutput += fmt.Sprintf("*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Clic here> to view\n_______________________________\n", issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, jiraBaseUrl)
+			}
+
+			responseJson := fmt.Sprintf(`
+{
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "*List of created issues*"
+			},
+			"accessory": {
+				"type": "image",
+				"image_url": "https://media.licdn.com/dms/image/C560BAQFSEYHt0DOivw/company-logo_200_200/0/1656514866210?e=2147483647&v=beta&t=aWpk6b-Eh783Hyx8CKjJSCQz7tqMXLX0RM4XizcW6H4",
+				"alt_text": "allwhere"
+			}
+		},
+		{
+			"type": "divider"
+		},
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "%s"
+			}
+		}
+	]
+}
+`, listOutput)
+
+			resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
+			if err != nil {
+				log.Println(err)
+			} else {
+				log.Println(resp.Status)
+			}
+
+		} else {
+			fmt.Fprint(w, "There are no active tasks :catshake:")
+		}
 
 	default:
 		fmt.Fprint(w, "Invalid argument")
@@ -352,7 +408,3 @@ func main() {
 	http.ListenAndServe(":80", nil)
 
 }
-
-//Request body: map[payload:[{"type":"view_submission","team":{"id":"T031ZLXLJD8","domain":"azintelecomgroup"},"user":{"id":"U033TG7F0QG","username":"tarlan.huseynov512","name":"tarlan.huseynov512","team_id":"T031ZLXLJD8"},"api_app_id":"A04JLQ9K1QA","token":"QRCbbgaxGSXfHzPJ3h0sSakG","trigger_id":"4668448250768.3067711698450.61b0e8481d80414ec3a442a5e0b20b93","view":{"id":"V04JYN337V0","team_id":"T031ZLXLJD8","type":"modal","blocks":[{"type":"input","block_id":"4007890","label":{"type":"plain_text","text":"Label","emoji":true},"hint":{"type":"plain_text","text":"Hint text","emoji":true},"optional":false,"dispatch_action":false,"element":{"type":"plain_text_input","action_id":"sl_input","placeholder":{"type":"plain_text","text":"Placeholder text for single-line input","emoji":true},"dispatch_action_config":{"trigger_actions_on":["on_enter_pressed"]}}},{"type":"input","block_id":"4007891","label":{"type":"plain_text","text":"Label","emoji":true},"hint":{"type":"plain_text","text":"Hint text","emoji":true},"optional":false,"dispatch_action":false,"element":{"type":"plain_text_input","action_id":"ml_input","placeholder":{"type":"plain_text","text":"Placeholder text for multi-line input","emoji":true},"multiline":true,"dispatch_action_config":{"trigger_actions_on":["on_enter_pressed"]}}}],"private_metadata":"","callback_id":"","state":{"values":{"4007890":{"sl_input":{"type":"plain_text_input","value":"qwe"}},"4007891":{"ml_input":{"type":"plain_text_input","value":"qwe"}}}},"hash":"1673733919.dxcfXsW2","title":{"type":"plain_text","text":"Modal Title","emoji":true},"clear_on_close":false,"notify_on_close":false,"close":null,"submit":{"type":"plain_text","text":"Submit","emoji":true},"previous_view_id":null,"root_view_id":"V04JYN337V0","app_id":"A04JLQ9K1QA","external_id":"","app_installed_team_id":"T031ZLXLJD8","bot_id":"B04JE77FAAJ"},"response_urls":[],"is_enterprise_install":false,"enterprise":null}]]
-// we will use func (*Client) UpdateViewContext
-// we may need to add  w.WriteHeader(200) before updating
