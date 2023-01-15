@@ -13,7 +13,6 @@ import (
 	"strings"
 )
 
-var responseUrl string
 var slackUsername string
 
 // will be used by multiple functions i.e getSlackUserName, slashCommandHandle
@@ -289,7 +288,7 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 	]
 }`, issueKey, issueUrl)
 
-	resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
+	resp, err := http.Post(GetDotEnv("SLACK_WEBHOOK"), "application/json", bytes.NewBuffer([]byte(responseJson)))
 	if err != nil {
 		log.Println(err)
 	} else {
@@ -308,7 +307,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 
 	commandText := r.Form.Get("text")
 	commandUser := r.Form.Get("user_name")
-	responseUrl = r.Form.Get("response_url")
+	responseUrl := r.Form.Get("response_url")
 
 	args := strings.Fields(commandText)
 	if len(args) != 1 {
