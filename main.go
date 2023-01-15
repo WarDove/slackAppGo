@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/slack-go/slack"
@@ -9,7 +10,148 @@ import (
 	"strings"
 )
 
-var viewJSON string = `
+var responseUrl string
+
+var client *slack.Client = slack.New("xoxb-3067711698450-4645480503873-qoIqRE703fst4OIlcI1KFn6K")
+
+type ViewSubmission struct {
+	Type string `json:"type"`
+	Team struct {
+		ID     string `json:"id"`
+		Domain string `json:"domain"`
+	} `json:"team"`
+	User struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		Name     string `json:"name"`
+		TeamID   string `json:"team_id"`
+	} `json:"user"`
+	APIAppID  string `json:"api_app_id"`
+	Token     string `json:"token"`
+	TriggerID string `json:"trigger_id"`
+	View      struct {
+		ID     string `json:"id"`
+		TeamID string `json:"team_id"`
+		Type   string `json:"type"`
+		Blocks []struct {
+			Type    string `json:"type"`
+			BlockID string `json:"block_id"`
+			Label   struct {
+				Type  string `json:"type"`
+				Text  string `json:"text"`
+				Emoji bool   `json:"emoji"`
+			} `json:"label"`
+			Hint struct {
+				Type  string `json:"type"`
+				Text  string `json:"text"`
+				Emoji bool   `json:"emoji"`
+			} `json:"hint"`
+			Optional       bool `json:"optional"`
+			DispatchAction bool `json:"dispatch_action"`
+			Element        struct {
+				Type        string `json:"type"`
+				ActionID    string `json:"action_id"`
+				Placeholder struct {
+					Type  string `json:"type"`
+					Text  string `json:"text"`
+					Emoji bool   `json:"emoji"`
+				} `json:"placeholder"`
+				DispatchActionConfig struct {
+					TriggerActionsOn []string `json:"trigger_actions_on"`
+				} `json:"dispatch_action_config"`
+			} `json:"element,omitempty"`
+			Element0 struct {
+				Type        string `json:"type"`
+				ActionID    string `json:"action_id"`
+				Placeholder struct {
+					Type  string `json:"type"`
+					Text  string `json:"text"`
+					Emoji bool   `json:"emoji"`
+				} `json:"placeholder"`
+				Multiline            bool `json:"multiline"`
+				DispatchActionConfig struct {
+					TriggerActionsOn []string `json:"trigger_actions_on"`
+				} `json:"dispatch_action_config"`
+			} `json:"element,omitempty"`
+		} `json:"blocks"`
+		PrivateMetadata string `json:"private_metadata"`
+		CallbackID      string `json:"callback_id"`
+		State           struct {
+			Values struct {
+				Num4007890 struct {
+					SlInput struct {
+						Type  string `json:"type"`
+						Value string `json:"value"`
+					} `json:"sl_input"`
+				} `json:"4007890"`
+				Num4007891 struct {
+					MlInput struct {
+						Type  string `json:"type"`
+						Value string `json:"value"`
+					} `json:"ml_input"`
+				} `json:"4007891"`
+			} `json:"values"`
+		} `json:"state"`
+		Hash  string `json:"hash"`
+		Title struct {
+			Type  string `json:"type"`
+			Text  string `json:"text"`
+			Emoji bool   `json:"emoji"`
+		} `json:"title"`
+		ClearOnClose  bool        `json:"clear_on_close"`
+		NotifyOnClose bool        `json:"notify_on_close"`
+		Close         interface{} `json:"close"`
+		Submit        struct {
+			Type  string `json:"type"`
+			Text  string `json:"text"`
+			Emoji bool   `json:"emoji"`
+		} `json:"submit"`
+		PreviousViewID     interface{} `json:"previous_view_id"`
+		RootViewID         string      `json:"root_view_id"`
+		AppID              string      `json:"app_id"`
+		ExternalID         string      `json:"external_id"`
+		AppInstalledTeamID string      `json:"app_installed_team_id"`
+		BotID              string      `json:"bot_id"`
+	} `json:"view"`
+	ResponseUrls        []interface{} `json:"response_urls"`
+	IsEnterpriseInstall bool          `json:"is_enterprise_install"`
+	Enterprise          interface{}   `json:"enterprise"`
+}
+
+var viewUpdateJSON string = `
+{
+	"type": "modal",
+	"title": {
+		"type": "plain_text",
+		"text": "My App",
+		"emoji": true
+	},
+	"close": {
+		"type": "plain_text",
+		"text": "OK",
+		"emoji": true
+	},
+	"blocks": [
+		{
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "created ticket  :smile:",
+				"emoji": true
+			}
+		},
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "<huseynov.net| Click here> section block :ghost: *this is bold*, and ~this is crossed out~, and <https://google.com|this is a link>"
+			}
+		}
+	]
+}
+`
+
+var viewCreateJSON string = `
 {
 	"title": {
 		"type": "plain_text",
@@ -66,11 +208,77 @@ var viewJSON string = `
 }
 `
 
+func actionHandle(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body to get the command text
+	r.ParseForm()
+
+	// log incoming requests
+	JSONBody := r.PostForm["payload"][0]
+	log.Printf("Request URI: %s", r.RequestURI)
+	log.Printf("Request body: %s", JSONBody)
+	log.Printf("Request header: %v", r.Header)
+
+	// Decode JSON body
+	bodyReader := strings.NewReader(JSONBody)
+	var viewSubmission ViewSubmission
+	err := json.NewDecoder(bodyReader).Decode(&viewSubmission)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	// Respond Successfully
+	w.WriteHeader(200)
+
+	// creating update view
+	//var viewUpdateRequest slack.ModalViewRequest
+	//if err := json.Unmarshal([]byte(viewUpdateJSON), &viewUpdateRequest); err != nil {
+	//	log.Println(err)
+	//	return
+	//}
+
+	responseJson := fmt.Sprintf(`{
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": ":catjam: Issue %s created!\nThanks for adding another one :catshake:\n<%s| Click here>:point_left: to view the task"
+			}
+		}
+	]
+}`, "test", "test")
+
+	resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println(resp.Status)
+	}
+
+	//log.Println(viewSubmission.TriggerID)
+	//viewReponse, err := client.OpenView(viewSubmission.TriggerID, viewUpdateRequest)
+	//if err != nil {
+	//	log.Printf("Error opening view: %s\n", err)
+	//	return
+	//}
+	//log.Printf("View updated successfully: %s\n", viewReponse.ExternalID)
+
+	//viewReponse, err := client.UpdateView(viewUpdateRequest, viewSubmission.View.ID, viewSubmission.View.Hash, viewSubmission.View.ID)
+	//if err != nil {
+	//	log.Printf("Error opening view: %s\n", err)
+	//	return
+	//}
+	//log.Printf("View updated successfully: %s\n", viewReponse.ExternalID)
+
+}
+
 func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
 	r.ParseForm()
 
 	// log incoming requests
+	log.Printf("Request URI: %s", r.RequestURI)
 	log.Printf("Request body: %s", r.PostForm)
 	log.Printf("Request header: %v", r.Header)
 
@@ -79,15 +287,14 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	commandText := r.Form.Get("text")
 	commandUser := r.Form.Get("user_name")
 	triggerID := r.Form.Get("trigger_id")
+	responseUrl = r.Form.Get("response_url")
 
-	// creating view
-	var viewRequest slack.ModalViewRequest
-	if err := json.Unmarshal([]byte(viewJSON), &viewRequest); err != nil {
+	// creating initial view
+	var viewCreateRequest slack.ModalViewRequest
+	if err := json.Unmarshal([]byte(viewCreateJSON), &viewCreateRequest); err != nil {
 		log.Println(err)
 		return
 	}
-
-	client := slack.New("xoxb-3067711698450-4645480503873-qoIqRE703fst4OIlcI1KFn6K")
 
 	args := strings.Fields(commandText)
 	if len(args) != 1 {
@@ -100,12 +307,12 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 	switch args[0] {
 
 	case "create":
-		openView, err := client.OpenView(triggerID, viewRequest)
+		openView, err := client.OpenView(triggerID, viewCreateRequest)
 		if err != nil {
 			log.Printf("Error opening view: %s\n", err)
 			return
 		}
-		log.Printf("View opened successfully: %s\n", openView)
+		log.Printf("View opened successfully: %s\n", openView.ExternalID)
 
 	default:
 		fmt.Fprint(w, "Invalid argument")
@@ -116,6 +323,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
+	http.HandleFunc("/action", actionHandle)
 	http.HandleFunc("/test", slashCmdHandle)
 	http.ListenAndServe(":80", nil)
 
