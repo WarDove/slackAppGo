@@ -351,7 +351,8 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 		if len(issues) > 0 {
 			listOutput := ""
 			for _, issue := range issues {
-				listOutput += fmt.Sprintf("*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Clic here> to view\n_______________________________\n", issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, jiraBaseUrl)
+				issueUrl := jiraBaseUrl + "/browse/" + issue.Key
+				listOutput += fmt.Sprintf("*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Clic here> to view\n_______________________________\n", issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, issueUrl)
 			}
 
 			responseJson := fmt.Sprintf(`
