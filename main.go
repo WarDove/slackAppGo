@@ -118,39 +118,6 @@ type ViewSubmission struct {
 	Enterprise          interface{}   `json:"enterprise"`
 }
 
-var viewUpdateJSON string = `
-{
-	"type": "modal",
-	"title": {
-		"type": "plain_text",
-		"text": "My App",
-		"emoji": true
-	},
-	"close": {
-		"type": "plain_text",
-		"text": "OK",
-		"emoji": true
-	},
-	"blocks": [
-		{
-			"type": "header",
-			"text": {
-				"type": "plain_text",
-				"text": "created ticket  :smile:",
-				"emoji": true
-			}
-		},
-		{
-			"type": "section",
-			"text": {
-				"type": "mrkdwn",
-				"text": "<huseynov.net| Click here> section block :ghost: *this is bold*, and ~this is crossed out~, and <https://google.com|this is a link>"
-			}
-		}
-	]
-}
-`
-
 var viewCreateJSON string = `
 {
 	"title": {
@@ -230,13 +197,6 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 	// Respond Successfully
 	w.WriteHeader(200)
 
-	// creating update view
-	//var viewUpdateRequest slack.ModalViewRequest
-	//if err := json.Unmarshal([]byte(viewUpdateJSON), &viewUpdateRequest); err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
 	responseJson := fmt.Sprintf(`{
 	"blocks": [
 		{
@@ -255,22 +215,6 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Println(resp.Status)
 	}
-
-	//log.Println(viewSubmission.TriggerID)
-	//viewReponse, err := client.OpenView(viewSubmission.TriggerID, viewUpdateRequest)
-	//if err != nil {
-	//	log.Printf("Error opening view: %s\n", err)
-	//	return
-	//}
-	//log.Printf("View updated successfully: %s\n", viewReponse.ExternalID)
-
-	//viewReponse, err := client.UpdateView(viewUpdateRequest, viewSubmission.View.ID, viewSubmission.View.Hash, viewSubmission.View.ID)
-	//if err != nil {
-	//	log.Printf("Error opening view: %s\n", err)
-	//	return
-	//}
-	//log.Printf("View updated successfully: %s\n", viewReponse.ExternalID)
-
 }
 
 func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
