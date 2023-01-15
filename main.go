@@ -283,7 +283,7 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": ":catjam: Issue %s created!\nThanks for adding another one :catshake:\n<%s| Click here>:point_left: to view the task"
+				"text": ":catjam: Issue %s created!\n<%s| Click here>:point_left: to view the task"
 			}
 		}
 	]
