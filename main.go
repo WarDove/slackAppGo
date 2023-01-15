@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/andygrunwald/go-jira"
 	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
 	"log"
@@ -80,18 +81,18 @@ type ViewSubmission struct {
 		CallbackID      string `json:"callback_id"`
 		State           struct {
 			Values struct {
-				Num4007890 struct {
+				Summary struct {
 					SlInput struct {
 						Type  string `json:"type"`
 						Value string `json:"value"`
 					} `json:"sl_input"`
-				} `json:"4007890"`
-				Num4007891 struct {
+				} `json:"summary"`
+				Description struct {
 					MlInput struct {
 						Type  string `json:"type"`
 						Value string `json:"value"`
 					} `json:"ml_input"`
-				} `json:"4007891"`
+				} `json:"description"`
 			} `json:"values"`
 		} `json:"state"`
 		Hash  string `json:"hash"`
@@ -132,7 +133,7 @@ var viewCreateJSON string = `
 	},
 	"blocks": [
 		{
-			"block_id": "4007890",
+			"block_id": "summary",
 			"type": "input",
 			"element": {
 				"type": "plain_text_input",
@@ -152,7 +153,7 @@ var viewCreateJSON string = `
 			}
 		},
 		{
-			"block_id": "4007891",
+			"block_id": "description",
 			"type": "input",
 			"element": {
 				"type": "plain_text_input",
@@ -176,6 +177,66 @@ var viewCreateJSON string = `
 	"type": "modal"
 }
 `
+
+func GetDotEnv(key string) string {
+	// load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
+}
+
+func getSlackUserName(slackUserID string) string {
+	client := slack.New(GetDotEnv("SLACK_TOKEN"))
+	user, err := client.GetUserInfo(slackUserID)
+	if err != nil {
+		fmt.Println("Error getting Slack user information:", err)
+		return ""
+	}
+	return user.Profile.RealName
+}
+
+func createJiraIssue(issueSummary, issueDescription, slackUsername string) (string, string) {
+	tp := jira.BasicAuthTransport{
+		Username: GetDotEnv("JIRA_USERNAME"),
+		Password: GetDotEnv("JIRA_PASSWORD"),
+	}
+
+	baseUrl := GetDotEnv("JIRA_URL")
+
+	client, err := jira.NewClient(tp.Client(), baseUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	issue := jira.Issue{
+		Fields: &jira.IssueFields{
+			Assignee: &jira.User{
+				AccountID: GetDotEnv("JIRA_ASSIGNEE_ACCOUNT_ID"),
+			},
+			Type: jira.IssueType{
+				Name: GetDotEnv("JIRA_ISSUE_TYPE"),
+			},
+			Description: issueDescription,
+			Project: jira.Project{
+				Key: GetDotEnv("JIRA_PROJECT_KEY"),
+			},
+			Summary: fmt.Sprintf("%s [Author: %s]", issueSummary, slackUsername),
+		},
+	}
+	createdIssue, resp, err := client.Issue.Create(&issue)
+	if err != nil {
+		fmt.Println("Error creating Jira task:", resp.Status, err)
+	} else {
+		fmt.Println("Jira task created successfully!")
+	}
+
+	issueUrl := fmt.Sprintf("%s/browse/%s", baseUrl, createdIssue.Key)
+
+	return createdIssue.Key, issueUrl
+}
 
 func actionHandle(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body to get the command text
@@ -201,7 +262,12 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-
+	// TODO: CREATE TASK FUNCTIONALITY HERE
+	issueSummary := viewSubmission.View.State.Values.Summary.SlInput.Value
+	issueDescription := viewSubmission.View.State.Values.Description.MlInput.Value
+	slackUsername := getSlackUserName(viewSubmission.User.ID)
+	issueKey, issueUrl := createJiraIssue(issueSummary, issueDescription, slackUsername)
+	log.Printf("Issue %v successfully created", issueKey)
 	// Respond Successfully
 	w.WriteHeader(200)
 
@@ -215,7 +281,7 @@ func actionHandle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	]
-}`, "test", "test")
+}`, issueKey, issueUrl)
 
 	resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
 	if err != nil {
@@ -260,7 +326,7 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client = slack.New(os.Getenv("SLACK_TOKEN"))
+	client = slack.New(GetDotEnv("SLACK_TOKEN"))
 
 	switch args[0] {
 
