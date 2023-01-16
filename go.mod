@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/andygrunwald/go-jira v1.16.0
+	github.com/aws/aws-lambda-go v1.37.0
 	github.com/joho/godotenv v1.4.0
 	github.com/slack-go/slack v0.12.1
 )
