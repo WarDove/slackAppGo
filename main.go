@@ -110,8 +110,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 			args := strings.Fields(commandText)
 			if len(args) != 1 {
 				log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-				responseBody = "Error: Argument requirements were not fulfilled!"
-				//TODO: Help display function here
+				responseBody = "Error: Argument requirements were not fulfilled!\n`/task create` to create a new issue\n`/task list` to list created issues"
 				return
 			}
 
@@ -167,8 +166,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 				}
 
 			default:
-				responseBody = "Invalid argument"
-				//TODO: Help display function here
+				responseBody = "Invalid argument\n`/task create` to create a new issue\n`/task list` to list created issues"
 				return
 			}
 		}()
