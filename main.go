@@ -20,6 +20,41 @@ var slackClient *slack.Client = slack.New(GetDotEnv("SLACK_TOKEN"))
 var jiraClient *jira.Client = createJiraClient()
 var jiraBaseUrl string = GetDotEnv("JIRA_URL")
 
+var responseBegin string = `
+{
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "*Project: Service Desk*\n*Company: Allwhere*\n*List of created issues*\n*In histoical order*"
+			},
+			"accessory": {
+				"type": "image",
+				"image_url": "https://media.licdn.com/dms/image/C560BAQFSEYHt0DOivw/company-logo_200_200/0/1656514866210?e=2147483647&v=beta&t=aWpk6b-Eh783Hyx8CKjJSCQz7tqMXLX0RM4XizcW6H4",
+				"alt_text": "allwhere"
+			}
+		},
+`
+
+var responseList string = `
+		{
+			"type": "divider"
+		},
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Click here> to view"
+			}
+		},
+`
+
+var responseEnd string = `
+	]
+}
+`
+
 type ViewSubmission struct {
 	Type string `json:"type"`
 	Team struct {
@@ -351,37 +386,10 @@ func slashCmdHandle(w http.ResponseWriter, r *http.Request) {
 			listOutput := ""
 			for _, issue := range issues {
 				issueUrl := jiraBaseUrl + "/browse/" + issue.Key
-				listOutput += fmt.Sprintf("*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Clic here> to view\n_______________________________\n", issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, issueUrl)
+				listOutput += fmt.Sprintf(responseList, issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, issueUrl)
 			}
 
-			responseJson := fmt.Sprintf(`
-{
-	"blocks": [
-		{
-			"type": "section",
-			"text": {
-				"type": "mrkdwn",
-				"text": "*List of created issues*"
-			},
-			"accessory": {
-				"type": "image",
-				"image_url": "https://media.licdn.com/dms/image/C560BAQFSEYHt0DOivw/company-logo_200_200/0/1656514866210?e=2147483647&v=beta&t=aWpk6b-Eh783Hyx8CKjJSCQz7tqMXLX0RM4XizcW6H4",
-				"alt_text": "allwhere"
-			}
-		},
-		{
-			"type": "divider"
-		},
-		{
-			"type": "section",
-			"text": {
-				"type": "mrkdwn",
-				"text": "%s"
-			}
-		}
-	]
-}
-`, listOutput)
+			responseJson := responseBegin + listOutput + responseEnd
 
 			resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
 			if err != nil {
