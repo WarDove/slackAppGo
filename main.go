@@ -175,7 +175,6 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 
 	} else if event.RawPath == "/action" {
 		func() {
-
 			base64EncodedBody := event.Body
 			urlEncodedBody, err := base64.StdEncoding.DecodeString(base64EncodedBody)
 			if err != nil {
