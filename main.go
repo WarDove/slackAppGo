@@ -164,6 +164,9 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					responseBody = "There are no active tasks :catshake:"
 					return
 				}
+			case "help":
+				responseBody = "`/task create` to create a new issue\n`/task list` to list created issues"
+				return
 
 			default:
 				responseBody = "Invalid argument\n`/task create` to create a new issue\n`/task list` to list created issues"
