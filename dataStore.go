@@ -25,7 +25,7 @@ var responseList string = `
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "*Issue [%s]*\nSummary: %s\nStatus: %s\n<%s|Click here> to view"
+				"text": "*Summary*: %s\n*Reported Description*: %s...\n*Ticket Number*: %s\n*Status*: %s\n*Reported date*: %s\n<%s|Click here> to view"
 			}
 		},
 `
@@ -182,7 +182,7 @@ var createTaskResponse string = `
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": ":catjam: Issue %s created by @%s\n<%s| Click here> :point_left: to view the task"
+				"text": "New issue %s reported by @%s\n<%s| Click here> :point_left: to view the reported issue\n\nReported description: %s..."
 			}
 		}
 	]

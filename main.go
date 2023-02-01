@@ -46,11 +46,10 @@ func createJiraClient() *jira.Client {
 
 func createJiraIssue(issueSummary, issueDescription, slackUsername string) (string, string) {
 
-	currentTime := time.Now().Format("01-02-2006")
-
 	customFields := tcontainer.NewMarshalMap()
 	customFields["customfield_10038"] = issueDescription // Reported Description
 	customFields["customfield_10041"] = slackUsername    // Reported By
+	currentDate := time.Now().Format("01-02-2006")
 
 	issue := jira.Issue{
 		Fields: &jira.IssueFields{
@@ -64,7 +63,7 @@ func createJiraIssue(issueSummary, issueDescription, slackUsername string) (stri
 			Project: jira.Project{
 				Key: os.Getenv("JIRA_PROJECT_KEY"),
 			},
-			Summary:  fmt.Sprintf("%s / %s", currentTime, slackUsername),
+			Summary:  fmt.Sprintf("%s / %s", currentDate, slackUsername),
 			Unknowns: customFields,
 		},
 	}
@@ -157,7 +156,17 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					listOutput := ""
 					for _, issue := range issues {
 						issueUrl := jiraBaseUrl + "/browse/" + issue.Key
-						listOutput += fmt.Sprintf(responseList, issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, issueUrl)
+
+						descriptionSummary := ""
+						if len(issue.Fields.Description) > 50 {
+							descriptionSummary = issue.Fields.Description[:50]
+						} else {
+							descriptionSummary = issue.Fields.Description
+						}
+
+						splitSummary := strings.Split(issue.Fields.Summary, " / ")
+						reportedDate := splitSummary[0]
+						listOutput += fmt.Sprintf(responseList, issue.Fields.Summary, descriptionSummary, issue.Key, issue.Fields.Status.Name, reportedDate, issueUrl)
 					}
 
 					responseJson := responseBegin + listOutput + responseEnd
@@ -218,7 +227,14 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 			issueKey, issueUrl := createJiraIssue(issueSummary, issueDescription, slackUsername)
 			log.Printf("Issue %v successfully created", issueKey)
 
-			responseJson := fmt.Sprintf(createTaskResponse, issueKey, viewSubmission.User.Username, issueUrl)
+			descriptionSummary := ""
+			if len(issueDescription) > 50 {
+				descriptionSummary = issueDescription[:50]
+			} else {
+				descriptionSummary = issueDescription
+			}
+
+			responseJson := fmt.Sprintf(createTaskResponse, issueKey, viewSubmission.User.Username, issueUrl, descriptionSummary)
 
 			resp, err := http.Post(os.Getenv("SLACK_WEBHOOK"), "application/json", bytes.NewBuffer([]byte(responseJson)))
 			if err != nil {
