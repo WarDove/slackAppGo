@@ -124,7 +124,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 
 			switch args[0] {
 
-			case "create":
+			case "report":
 
 				// creating view
 				triggerID := urlValues["trigger_id"]
@@ -143,7 +143,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 				}
 				log.Printf("View opened successfully, ID %s\n", openView.View.ID)
 
-			case "list":
+			case "status":
 				slackUsername := getSlackUserName(commandUserID)
 				JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ '%s' AND status not in ('DONE', 'NO ACTION NEEDED') ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
 
@@ -183,11 +183,11 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					return
 				}
 			case "help":
-				responseBody = "`/task create` to create a new issue\n`/task list` to list created issues"
+				responseBody = "`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
 				return
 
 			default:
-				responseBody = "Invalid argument\n`/task create` to create a new issue\n`/task list` to list created issues"
+				responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
 				return
 			}
 		}()
@@ -234,7 +234,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 				descriptionSummary = issueDescription
 			}
 
-			responseJson := fmt.Sprintf(createTaskResponse, issueKey, viewSubmission.User.Username, issueUrl, descriptionSummary)
+			responseJson := fmt.Sprintf(createTaskResponse, issueUrl, issueKey, viewSubmission.User.Username, descriptionSummary)
 
 			resp, err := http.Post(os.Getenv("SLACK_WEBHOOK"), "application/json", bytes.NewBuffer([]byte(responseJson)))
 			if err != nil {
