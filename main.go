@@ -9,11 +9,13 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/slack-go/slack"
+	"github.com/trivago/tgo/tcontainer"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 var slackClient *slack.Client = slack.New(os.Getenv("SLACK_TOKEN"))
@@ -44,6 +46,12 @@ func createJiraClient() *jira.Client {
 
 func createJiraIssue(issueSummary, issueDescription, slackUsername string) (string, string) {
 
+	currentTime := time.Now().Format("01-02-2006")
+
+	customFields := tcontainer.NewMarshalMap()
+	customFields["customfield_10038"] = issueDescription // Reported Description
+	customFields["customfield_10041"] = slackUsername    // Reported By
+
 	issue := jira.Issue{
 		Fields: &jira.IssueFields{
 			Assignee: &jira.User{
@@ -56,15 +64,16 @@ func createJiraIssue(issueSummary, issueDescription, slackUsername string) (stri
 			Project: jira.Project{
 				Key: os.Getenv("JIRA_PROJECT_KEY"),
 			},
-			Summary: fmt.Sprintf("%s [Author: %s]", issueSummary, slackUsername),
+			Summary:  fmt.Sprintf("%s / %s", currentTime, slackUsername),
+			Unknowns: customFields,
 		},
 	}
 
 	createdIssue, resp, err := jiraClient.Issue.Create(&issue)
 	if err != nil {
-		fmt.Println("Error creating Jira task:", resp.Status, err)
+		log.Println("Error creating Jira task:", resp.Status, err)
 	} else {
-		fmt.Println("Jira task created successfully!")
+		log.Println("Jira task created successfully!")
 	}
 
 	issueUrl := fmt.Sprintf("%s/browse/%s", jiraBaseUrl, createdIssue.Key)
@@ -137,7 +146,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 
 			case "list":
 				slackUsername := getSlackUserName(commandUserID)
-				JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ 'Author: %s' ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
+				JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ '%s' AND status not in ('DONE', 'NO ACTION NEEDED') ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
 
 				issues, _, err := jiraClient.Issue.Search(JQLQuery, nil)
 				if err != nil {

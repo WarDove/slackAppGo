@@ -151,26 +151,6 @@ var viewCreateJSON string = `
 	},
 	"blocks": [
 		{
-			"block_id": "summary",
-			"type": "input",
-			"element": {
-				"type": "plain_text_input",
-				"action_id": "sl_input",
-				"placeholder": {
-					"type": "plain_text",
-					"text": "Brief summary text"
-				}
-			},
-			"label": {
-				"type": "plain_text",
-				"text": "Summary"
-			},
-			"hint": {
-				"type": "plain_text",
-				"text": "A summary of what the issue is about"
-			}
-		},
-		{
 			"block_id": "description",
 			"type": "input",
 			"element": {
