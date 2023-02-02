@@ -63,7 +63,7 @@ func createJiraIssue(issueSummary, issueDescription, slackUsername string) (stri
 			Project: jira.Project{
 				Key: os.Getenv("JIRA_PROJECT_KEY"),
 			},
-			Summary:  fmt.Sprintf("%s / %s", currentDate, slackUsername),
+			Summary:  fmt.Sprintf("%s%s / %s", issueSummary, currentDate, slackUsername),
 			Unknowns: customFields,
 		},
 	}
@@ -85,7 +85,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 	var responseBody string
 	var responseCode int = 200
 
-	// Handle slash command "/task"
+	// Handle slash command "/service_desk"
 	if event.RawPath == "/task" {
 		func() {
 
@@ -114,17 +114,19 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 			commandUserName := urlValues["user_name"]
 			commandUserID := urlValues["user_id"]
 			responseUrl := urlValues["response_url"]
+			slackUsername := getSlackUserName(commandUserID)
 
 			args := strings.Fields(commandText)
-			if len(args) != 1 {
-				log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-				responseBody = "Error: Argument requirements were not fulfilled!\n`/task create` to create a new issue\n`/task list` to list created issues"
-				return
-			}
 
 			switch args[0] {
 
 			case "report":
+
+				if len(args) != 1 {
+					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+					responseBody = "Error: `report` command doesn't need any arguments, enter `/service_desk help` for more info"
+					return
+				}
 
 				// creating view
 				triggerID := urlValues["trigger_id"]
@@ -144,7 +146,13 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 				log.Printf("View opened successfully, ID %s\n", openView.View.ID)
 
 			case "status":
-				slackUsername := getSlackUserName(commandUserID)
+
+				if len(args) != 1 {
+					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+					responseBody = "Error: `status` command doesn't need any arguments, enter `/service_desk help` for more info"
+					return
+				}
+
 				JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ '%s' AND status not in ('DONE', 'NO ACTION NEEDED') ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
 
 				issues, _, err := jiraClient.Issue.Search(JQLQuery, nil)
@@ -182,13 +190,62 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					responseBody = "There are no active tasks :catshake:"
 					return
 				}
+
+			case "comment":
+
+				if len(args) < 3 {
+					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+					responseBody = "Error: `comment` command needs 2 arguments, enter `/service_desk help` for more info"
+					return
+				}
+
+				issue, response, err := jiraClient.Issue.Get(args[1], nil)
+				if err != nil {
+					Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
+					log.Println(Error)
+					responseBody = Error
+					return
+				}
+
+				if response.StatusCode == http.StatusOK {
+
+					// Define the comment to be added
+					comment := fmt.Sprintf("%s \n [Author: %s]", strings.Join(args[2:], " "), slackUsername)
+
+					newComment := jira.Comment{
+						Body: comment,
+					}
+
+					// Add the comment to the issue
+					_, _, err := jiraClient.Issue.AddComment(issue.Key, &newComment)
+
+					issueUrl := jiraBaseUrl + "/browse/" + issue.Key
+
+					if err != nil {
+						log.Fatalf("Error adding comment to JIRA issue: %s\n", err)
+						return
+					}
+					log.Printf("comment created successfully")
+					responseBody = fmt.Sprintf("Comment added to issue: *<%s| %s>*\n\nAdded comment: %s", issueUrl, issue.Key, comment)
+
+				} else if response.StatusCode == http.StatusNotFound {
+					Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
+					log.Println(Error)
+					responseBody = Error
+					return
+				}
+
 			case "help":
+
+				if len(args) != 1 {
+					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+					responseBody = "Error: `help` command doesn't need any arguments, enter `/service_desk help` for more info"
+					return
+				}
 				responseBody = "`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
-				return
 
 			default:
 				responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
-				return
 			}
 		}()
 

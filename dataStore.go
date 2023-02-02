@@ -188,3 +188,5 @@ var createTaskResponse string = `
 	]
 }
 `
+
+var helpText = "`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk comment <IssueKey> <Comment>` to add a new comment\n`/service_desk help` to open help menu"
