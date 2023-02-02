@@ -242,7 +242,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					responseBody = "Error: `help` command doesn't need any arguments, enter `/service_desk help` for more info"
 					return
 				}
-				responseBody = "`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
+				responseBody = helpText
 
 			default:
 				responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
