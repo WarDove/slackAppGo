@@ -118,134 +118,140 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 
 			args := strings.Fields(commandText)
 
-			switch args[0] {
+			if commandText != "" {
 
-			case "report":
+				switch args[0] {
 
-				if len(args) != 1 {
-					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-					responseBody = "Error: `report` command doesn't need any arguments, enter `/service_desk help` for more info"
-					return
-				}
+				case "report":
 
-				// creating view
-				triggerID := urlValues["trigger_id"]
-				var viewCreateRequest slack.ModalViewRequest
-				if err := json.Unmarshal([]byte(viewCreateJSON), &viewCreateRequest); err != nil {
-					log.Println(err)
-					return
-				}
-
-				// opening view
-				openView, err := slackClient.OpenView(triggerID, viewCreateRequest)
-				if err != nil {
-					log.Printf("Error opening view: %s\n", err)
-					responseCode = 500
-					return
-				}
-				log.Printf("View opened successfully, ID %s\n", openView.View.ID)
-
-			case "status":
-
-				if len(args) != 1 {
-					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-					responseBody = "Error: `status` command doesn't need any arguments, enter `/service_desk help` for more info"
-					return
-				}
-
-				JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ '%s' AND status not in ('DONE', 'NO ACTION NEEDED') ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
-
-				issues, _, err := jiraClient.Issue.Search(JQLQuery, nil)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				if len(issues) > 0 {
-					listOutput := ""
-					for _, issue := range issues {
-						issueUrl := jiraBaseUrl + "/browse/" + issue.Key
-
-						descriptionSummary := ""
-						if len(issue.Fields.Description) > 50 {
-							descriptionSummary = issue.Fields.Description[:50]
-						} else {
-							descriptionSummary = issue.Fields.Description
-						}
-
-						splitSummary := strings.Split(issue.Fields.Summary, " / ")
-						reportedDate := splitSummary[0]
-						listOutput += fmt.Sprintf(responseList, issue.Fields.Summary, descriptionSummary, issue.Key, issue.Fields.Status.Name, reportedDate, issueUrl)
-					}
-
-					responseJson := responseBegin + listOutput + responseEnd
-
-					resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
-					if err != nil {
-						log.Println(err)
-					} else {
-						log.Println(resp.Status)
-					}
-
-				} else {
-					responseBody = "There are no active tasks :catshake:"
-					return
-				}
-
-			case "comment":
-
-				if len(args) < 3 {
-					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-					responseBody = "Error: `comment` command needs 2 arguments, enter `/service_desk help` for more info"
-					return
-				}
-
-				issue, response, err := jiraClient.Issue.Get(args[1], nil)
-				if err != nil {
-					Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
-					log.Println(Error)
-					responseBody = Error
-					return
-				}
-
-				if response.StatusCode == http.StatusOK {
-
-					// Define the comment to be added
-					comment := fmt.Sprintf("%s \n [Author: %s]", strings.Join(args[2:], " "), slackUsername)
-
-					newComment := jira.Comment{
-						Body: comment,
-					}
-
-					// Add the comment to the issue
-					_, _, err := jiraClient.Issue.AddComment(issue.Key, &newComment)
-
-					issueUrl := jiraBaseUrl + "/browse/" + issue.Key
-
-					if err != nil {
-						log.Fatalf("Error adding comment to JIRA issue: %s\n", err)
+					if len(args) != 1 {
+						log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+						responseBody = "Error: `report` command doesn't need any arguments, enter `/service_desk help` for more info"
 						return
 					}
-					log.Printf("comment created successfully")
-					responseBody = fmt.Sprintf("Comment added to issue: *<%s| %s>*\n\nAdded comment: %s", issueUrl, issue.Key, comment)
 
-				} else if response.StatusCode == http.StatusNotFound {
-					Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
-					log.Println(Error)
-					responseBody = Error
-					return
+					// creating view
+					triggerID := urlValues["trigger_id"]
+					var viewCreateRequest slack.ModalViewRequest
+					if err := json.Unmarshal([]byte(viewCreateJSON), &viewCreateRequest); err != nil {
+						log.Println(err)
+						return
+					}
+
+					// opening view
+					openView, err := slackClient.OpenView(triggerID, viewCreateRequest)
+					if err != nil {
+						log.Printf("Error opening view: %s\n", err)
+						responseCode = 500
+						return
+					}
+					log.Printf("View opened successfully, ID %s\n", openView.View.ID)
+
+				case "status":
+
+					if len(args) != 1 {
+						log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+						responseBody = "Error: `status` command doesn't need any arguments, enter `/service_desk help` for more info"
+						return
+					}
+
+					JQLQuery := fmt.Sprintf("project = '%s' AND summary ~ '%s' AND status not in ('DONE', 'NO ACTION NEEDED') ORDER BY created DESC", os.Getenv("JIRA_PROJECT_KEY"), slackUsername)
+
+					issues, _, err := jiraClient.Issue.Search(JQLQuery, nil)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					if len(issues) > 0 {
+						listOutput := ""
+						for _, issue := range issues {
+							issueUrl := jiraBaseUrl + "/browse/" + issue.Key
+
+							descriptionSummary := ""
+							if len(issue.Fields.Description) > 50 {
+								descriptionSummary = issue.Fields.Description[:50]
+							} else {
+								descriptionSummary = issue.Fields.Description
+							}
+
+							splitSummary := strings.Split(issue.Fields.Summary, " / ")
+							reportedDate := splitSummary[0]
+							listOutput += fmt.Sprintf(responseList, issue.Fields.Summary, descriptionSummary, issue.Key, issue.Fields.Status.Name, reportedDate, issueUrl)
+						}
+
+						responseJson := responseBegin + listOutput + responseEnd
+
+						resp, err := http.Post(responseUrl, "application/json", bytes.NewBuffer([]byte(responseJson)))
+						if err != nil {
+							log.Println(err)
+						} else {
+							log.Println(resp.Status)
+						}
+
+					} else {
+						responseBody = "There are no active tasks :catshake:"
+						return
+					}
+
+				case "comment":
+
+					if len(args) < 3 {
+						log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+						responseBody = "Error: `comment` command needs 2 arguments, enter `/service_desk help` for more info"
+						return
+					}
+
+					issue, response, err := jiraClient.Issue.Get(args[1], nil)
+					if err != nil {
+						Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
+						log.Println(Error)
+						responseBody = Error
+						return
+					}
+
+					if response.StatusCode == http.StatusOK {
+
+						// Define the comment to be added
+						comment := fmt.Sprintf("%s \n [Author: %s]", strings.Join(args[2:], " "), slackUsername)
+
+						newComment := jira.Comment{
+							Body: comment,
+						}
+
+						// Add the comment to the issue
+						_, _, err := jiraClient.Issue.AddComment(issue.Key, &newComment)
+
+						issueUrl := jiraBaseUrl + "/browse/" + issue.Key
+
+						if err != nil {
+							log.Fatalf("Error adding comment to JIRA issue: %s\n", err)
+							return
+						}
+						log.Printf("comment created successfully")
+						responseBody = fmt.Sprintf("Comment added to issue: *<%s| %s>*\n\nAdded comment: %s", issueUrl, issue.Key, comment)
+
+					} else if response.StatusCode == http.StatusNotFound {
+						Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
+						log.Println(Error)
+						responseBody = Error
+						return
+					}
+
+				case "help":
+
+					if len(args) != 1 {
+						log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
+						responseBody = "Error: `help` command doesn't need any arguments, enter `/service_desk help` for more info"
+						return
+					}
+					responseBody = helpText
+
+				default:
+					responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
 				}
-
-			case "help":
-
-				if len(args) != 1 {
-					log.Printf("Error: Argument requirements were not fulfilled! Slack user: %s", commandUserName)
-					responseBody = "Error: `help` command doesn't need any arguments, enter `/service_desk help` for more info"
-					return
-				}
+			} else {
+				log.Printf("Error: No command was passed! Slack user: %s", commandUserName)
 				responseBody = helpText
-
-			default:
-				responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
 			}
 		}()
 
