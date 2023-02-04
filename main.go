@@ -247,7 +247,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					responseBody = helpText
 
 				default:
-					responseBody = "Invalid argument\n`/service_desk report` to report a new issue\n`/service_desk status` to list active issues\n`/service_desk help` to open help menu"
+					responseBody = "Invalid argument\n" + helpText
 				}
 			} else {
 				log.Printf("Error: No command was passed! Slack user: %s", commandUserName)
