@@ -165,7 +165,6 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 					if len(issues) > 0 {
 						listOutput := ""
 						for _, issue := range issues {
-							issueUrl := jiraBaseUrl + "/browse/" + issue.Key
 
 							descriptionSummary := ""
 							if len(issue.Fields.Description) > 50 {
@@ -176,7 +175,7 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 
 							splitSummary := strings.Split(issue.Fields.Summary, " / ")
 							reportedDate := splitSummary[0]
-							listOutput += fmt.Sprintf(responseList, issue.Fields.Summary, descriptionSummary, issue.Key, issue.Fields.Status.Name, reportedDate, issueUrl)
+							listOutput += fmt.Sprintf(responseList, issue.Fields.Summary, descriptionSummary, issue.Key, issue.Fields.Status.Name, reportedDate)
 						}
 
 						responseJson := responseBegin + listOutput + responseEnd
@@ -221,14 +220,12 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 						// Add the comment to the issue
 						_, _, err := jiraClient.Issue.AddComment(issue.Key, &newComment)
 
-						issueUrl := jiraBaseUrl + "/browse/" + issue.Key
-
 						if err != nil {
 							log.Fatalf("Error adding comment to JIRA issue: %s\n", err)
 							return
 						}
 						log.Printf("comment created successfully")
-						responseBody = fmt.Sprintf("Comment added to issue: *<%s| %s>*\n\nAdded comment: %s", issueUrl, issue.Key, comment)
+						responseBody = fmt.Sprintf("Comment added to issue: *%s>*\n\n*Added comment*: %s", issue.Key, comment)
 
 					} else if response.StatusCode == http.StatusNotFound {
 						Error := fmt.Sprintf("Error: Issue with ID %s created by %s does not exist", args[1], slackUsername)
@@ -287,17 +284,10 @@ func lambdaHandler(event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTT
 			issueSummary := viewSubmission.View.State.Values.Summary.SlInput.Value
 			issueDescription := viewSubmission.View.State.Values.Description.MlInput.Value
 			slackUsername := getSlackUserName(viewSubmission.User.ID)
-			issueKey, issueUrl := createJiraIssue(issueSummary, issueDescription, slackUsername)
+			issueKey, _ := createJiraIssue(issueSummary, issueDescription, slackUsername)
 			log.Printf("Issue %v successfully created", issueKey)
 
-			descriptionSummary := ""
-			if len(issueDescription) > 50 {
-				descriptionSummary = issueDescription[:50]
-			} else {
-				descriptionSummary = issueDescription
-			}
-
-			responseJson := fmt.Sprintf(createTaskResponse, issueUrl, issueKey, viewSubmission.User.Username, descriptionSummary)
+			responseJson := fmt.Sprintf(createTaskResponse, issueKey, viewSubmission.User.Username, issueDescription)
 
 			resp, err := http.Post(os.Getenv("SLACK_WEBHOOK"), "application/json", bytes.NewBuffer([]byte(responseJson)))
 			if err != nil {

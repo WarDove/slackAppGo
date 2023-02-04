@@ -7,7 +7,7 @@ var responseBegin string = `
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "*Project: Service Desk*\n*Company: Allwhere*\n*List of created issues*\n*In histoical order*"
+				"text": "*Project: Service Desk*\n*Company: Allwhere*\n*List of created issues*\n*In historical order*"
 			},
 			"accessory": {
 				"type": "image",
@@ -25,7 +25,7 @@ var responseList string = `
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "*Summary*: %s\n*Reported description*: %s...\n*Ticket number*: %s\n*Status*: %s\n*Reported date*: %s\n<%s|Click here> to view"
+				"text": "*Summary*: %s\n*Reported description*: %s...\n*Ticket number*: %s\n*Status*: %s\n*Reported date*: %s"
 			}
 		},
 `
@@ -143,7 +143,7 @@ var viewCreateJSON string = `
 {
 	"title": {
 		"type": "plain_text",
-		"text": "Create Ops Issue"
+		"text": "Report Issue"
 	},
 	"submit": {
 		"type": "plain_text",
@@ -168,7 +168,7 @@ var viewCreateJSON string = `
 			},
 			"hint": {
 				"type": "plain_text",
-				"text": "Describe issue and define acceptance criteria for this issue"
+				"text": "Please describe your issue with as much detail as possible."
 			}
 		}
 	],
@@ -182,7 +182,7 @@ var createTaskResponse string = `
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "New issue *<%s| %s>* reported by @%s\n\n*Reported description*: %s..."
+				"text": "New issue *%s* reported by @%s\n\n*Reported description*: %s"
 			}
 		}
 	]
